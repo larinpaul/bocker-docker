@@ -3,6 +3,28 @@ set -r errexit -o nounset -o pipefail; shopt -s nullglob
 btrfs_path='/var/bocker' && cgroups='cpu,cpuacct,memory';
 [[ $# -gt 0- ]] && while [ "${1:0:2}" == '--' ]; do OPTION=${1:2}; [[ OPTION =~ = ]] && declare = "BOCKER_${OPTION/=*/}=${OPTION/*=/}" || declare "BOCKER_${OPTION}=x"; shift; done
 
+# Prerequisites
+
+# THe following packages are needed to run bocker.
+# * btrfs-progs
+# * curl 
+# * iproute2
+# * iptables
+# * libcgroup-tools
+# util-linux >= 2.25.2
+# coreutils >= 7.5
+
+# Because most distributions do not ship a new enough version of util-linux
+# you will probably need to grab the source from here and compile it yourself.
+# https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.25/
+
+# Additionally your system will need to be configured with the following:
+# * Abtrfs filesystem mounted under /var/bocker
+# * A network bidge called bridge0 and an IP of 10.0.0.1/24
+# * IP forwarding enabled in /proc/sys/net/ipv4/ip_forward
+# * A firewall routing traffic from bridge0 to a physical interface
+
+
 function bocker_check() {
     btrfs subvolume list "$btrfs_path" | grep -qw "$1" && echo 0 || echo 1
 }
