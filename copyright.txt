@@ -24,3 +24,89 @@
 # * IP forwarding enabled in /proc/sys/net/ipv4/ip_forward
 # * A firewall routing traffic from bridge0 to a physical interface
 
+Example Usage
+$ bocker pull centos 7
+######################################################################## 100.0%
+######################################################################## 100.0%
+######################################################################## 100.0%
+Created: img_42150
+
+$ bocker images
+IMAGE_ID        SOURCE
+img_42150       centos:7
+
+$ bocker run img_42150 cat /etc/centos-release
+CentOS Linux release 7.1.1503 (Core)
+
+$ bocker ps
+CONTAINER_ID       COMMAND
+ps_42045           cat /etc/centos-release
+
+$ bocker logs ps_42045
+CentOS Linux release 7.1.1503 (Core)
+
+$ bocker rm ps_42045
+Removed: ps_42045
+
+$ bocker run img_42150 which wget
+which: no wget in (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin)
+
+$ bocker run img_42150 yum install -y wget
+Installing : wget-1.14-10.el7_0.1.x86_64                                  1/1
+Verifying  : wget-1.14-10.el7_0.1.x86_64                                  1/1
+Installed  : wget.x86_64 0:1.14-10.el7_0.1
+Complete!
+
+$ bocker ps
+CONTAINER_ID       COMMAND
+ps_42018           yum install -y wget
+ps_42182           which wget
+
+$ bocker commit ps_42018 img_42150
+Removed: img_42150
+Created: img_42150
+
+$ bocker run img_42150 which wget
+/usr/bin/wget
+
+$ bocker run img_42150 cat /proc/1/cgroup
+...
+4:memory:/ps_42152
+3:cpuacct,cpu:/ps_42152
+
+$ cat /sys/fs/cgroup/cpu/ps_42152/cpu.shares
+512
+
+$ cat /sys/fs/cgroup/memory/ps_42152/memory.limit_in_bytes
+512000000
+
+$ BOCKER_CPU_SHARE=1024 \
+	BOCKER_MEM_LIMIT=1024 \
+	bocker run img_42150 cat /proc/1/cgroup
+...
+4:memory:/ps_42188
+3:cpuacct,cpu:/ps_42188
+
+$ cat /sys/fs/cgroup/cpu/ps_42188/cpu.shares
+1024
+
+$ cat /sys/fs/cgroup/memory/ps_42188/memory.limit_in_bytes
+1024000000
+Functionality: Currently Implemented
+docker build †
+docker pull
+docker images
+docker ps
+docker run
+docker exec
+docker logs
+docker commit
+docker rm / docker rmi
+Networking
+Quota Support / CGroups
+† bocker init provides a very limited implementation of docker build
+
+Functionality: Not Yet Implemented
+Data Volume Containers
+Data Volumes
+Port Forwarding
