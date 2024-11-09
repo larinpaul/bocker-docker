@@ -37,7 +37,10 @@ function bocker_pull() { #HELP Pull an image from Docker Hub:\nBOCKER pull <name
 
 
 function bocker_rm() { #HELP Delete an image or container:\nBOCKER rm <image_id or container_id>
-
+	[[ "$(bocker_check "$1")" == 1 ]] && echo "No container named '$1' exists" && exit 1
+	btrfs subvolume delete "$btrfs_path/$1" > /dev/null
+	cgdelete -g "$cgroups:/$1" &> /dev/null || true
+	echo "Removed: $1"
 }
 
 function bocker_images() { #HELP List images:\nBOCKER images
