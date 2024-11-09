@@ -35,7 +35,6 @@ function bocker_pull() { #HELP Pull an image from Docker Hub:\nBOCKER pull <name
 	bocker_init /tmp/"$tmp_uuid" && rm -rf /tmp/"$tmp_uuid"
 }
 
-
 function bocker_rm() { #HELP Delete an image or container:\nBOCKER rm <image_id or container_id>
 	[[ "$(bocker_check "$1")" == 1 ]] && echo "No container named '$1' exists" && exit 1
 	btrfs subvolume delete "$btrfs_path/$1" > /dev/null
@@ -90,25 +89,31 @@ function bocker_run() { #HELP Create a container:\nBOCKER run <image_id> <comman
 	ip netns del netns_"$uuid"
 }
 
-
 function bocker_exec() { #HELP Execute a command in a running container:\nBOCKER exec <container_id> <command>
-
+	[[ "$(bocker_check "$1")" == 1 ]] && echo "No container named '$1' exists" && exit 1
+	cid="$(ps o ppid,pid | grep "^$(ps o pid,cmd | grep -E "^\ *[0-9]+ unshare.*$1" | awk '{print $1}')" | awk '{print $2}')"
+	[[ ! "$cid" =~ ^\ *[0-9]+$ ]] && echo "Container '$1' exists but is not running" && exit 1
+	nsenter -t "$cid" -m -u -i -n -p chroot "$btrfs_path/$1" "${@:2}"
 }
 
 function bocker_logs() { #HELP View logs from a container:\nBOCKER logs <container_id>
-
+	[[ "$(bocker_check "$1")" == 1 ]] && echo "No container named '$1' exists" && exit 1
+	cat "$btrfs_path/$1/$1.log"
 }
 
 function bocker_commit() { #HELP Commit a container to an image:\nBOCKER commit <container_id> <image_id>
-
+	[[ "$(bocker_check "$1")" == 1 ]] && echo "No container named '$1' exists" && exit 1
+	[[ "$(bocker_check "$2")" == 1 ]] && echo "No image named '$2' exists" && exit 1
+	bocker_rm "$2" && btrfs subvolume snapshot "$btrfs_path/$1" "$btrfs_path/$2" > /dev/null
+	echo "Created: $2"
 }
 
 function bocker_help() { #HELP Display this message:\nBOCKER help
-
+	sed -n "s/^.*#HELP\\s//p;" < "$1" | sed "s/\\\\n/\n\t/g;s/$/\n/;s!BOCKER!${1/!/\\!}!g"
 }
 
 [[ -z "${1-}" ]] && bocker_help "$0"
 case $1 in
-    pull|init|rm|images|ps|run|exec|logs|commit) bocker_"$1" "${@:2}" ;;
-    *) bocker_help "$0" ;;
+	pull|init|rm|images|ps|run|exec|logs|commit) bocker_"$1" "${@:2}" ;;
+	*) bocker_help "$0" ;;
 esac
