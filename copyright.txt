@@ -2,3 +2,25 @@
 
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 # https://github.com/p8952/bocker#prerequisites
+
+# Prerequisites
+
+# THe following packages are needed to run bocker.
+# * btrfs-progs
+# * curl 
+# * iproute2
+# * iptables
+# * libcgroup-tools
+# util-linux >= 2.25.2
+# coreutils >= 7.5
+
+# Because most distributions do not ship a new enough version of util-linux
+# you will probably need to grab the source from here and compile it yourself.
+# https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.25/
+
+# Additionally your system will need to be configured with the following:
+# * Abtrfs filesystem mounted under /var/bocker
+# * A network bidge called bridge0 and an IP of 10.0.0.1/24
+# * IP forwarding enabled in /proc/sys/net/ipv4/ip_forward
+# * A firewall routing traffic from bridge0 to a physical interface
+
