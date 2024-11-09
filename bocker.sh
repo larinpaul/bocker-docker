@@ -44,16 +44,52 @@ function bocker_rm() { #HELP Delete an image or container:\nBOCKER rm <image_id 
 }
 
 function bocker_images() { #HELP List images:\nBOCKER images
-
+	echo -e "IMAGE_ID\t\tSOURCE"
+	for img in "$btrfs_path"/img_*; do
+		img=$(basename "$img")
+		echo -e "$img\t\t$(cat "$btrfs_path/$img/img.source")"
+	done
 }
 
 function bocker_ps() { #HELP List containers:\nBOCKER ps
-
+	echo -e "CONTAINER_ID\t\tCOMMAND"
+	for ps in "$btrfs_path"/ps_*; do
+		ps=$(basename "$ps")
+		echo -e "$ps\t\t$(cat "$btrfs_path/$ps/$ps.cmd")"
+	done
 }
 
 function bocker_run() { #HELP Create a container:\nBOCKER run <image_id> <command>
-
+	uuid="ps_$(shuf -i 42002-42254 -n 1)"
+	[[ "$(bocker_check "$1")" == 1 ]] && echo "No image named '$1' exists" && exit 1
+	[[ "$(bocker_check "$uuid")" == 0 ]] && echo "UUID conflict, retrying..." && bocker_run "$@" && return
+	cmd="${@:2}" && ip="$(echo "${uuid: -3}" | sed 's/0//g')" && mac="${uuid: -3:1}:${uuid: -2}"
+	ip link add dev veth0_"$uuid" type veth peer name veth1_"$uuid"
+	ip link set dev veth0_"$uuid" up
+	ip link set veth0_"$uuid" master bridge0
+	ip netns add netns_"$uuid"
+	ip link set veth1_"$uuid" netns netns_"$uuid"
+	ip netns exec netns_"$uuid" ip link set dev lo up
+	ip netns exec netns_"$uuid" ip link set veth1_"$uuid" address 02:42:ac:11:00"$mac"
+	ip netns exec netns_"$uuid" ip addr add 10.0.0."$ip"/24 dev veth1_"$uuid"
+	ip netns exec netns_"$uuid" ip link set dev veth1_"$uuid" up
+	ip netns exec netns_"$uuid" ip route add default via 10.0.0.1
+	btrfs subvolume snapshot "$btrfs_path/$1" "$btrfs_path/$uuid" > /dev/null
+	echo 'nameserver 8.8.8.8' > "$btrfs_path/$uuid"/etc/resolv.conf
+	echo "$cmd" > "$btrfs_path/$uuid/$uuid.cmd"
+	cgcreate -g "$cgroups:/$uuid"
+	: "${BOCKER_CPU_SHARE:=512}" && cgset -r cpu.shares="$BOCKER_CPU_SHARE" "$uuid"
+	: "${BOCKER_MEM_LIMIT:=512}" && cgset -r memory.limit_in_bytes="$((BOCKER_MEM_LIMIT * 1000000))" "$uuid"
+	cgexec -g "$cgroups:$uuid" \
+		ip netns exec netns_"$uuid" \
+		unshare -fmuip --mount-proc \
+		chroot "$btrfs_path/$uuid" \
+		/bin/sh -c "/bin/mount -t proc proc /proc && $cmd" \
+		2>&1 | tee "$btrfs_path/$uuid/$uuid.log" || true
+	ip link del dev veth0_"$uuid"
+	ip netns del netns_"$uuid"
 }
+
 
 function bocker_exec() { #HELP Execute a command in a running container:\nBOCKER exec <container_id> <command>
 
